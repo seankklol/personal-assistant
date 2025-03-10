@@ -1,0 +1,11 @@
+---
+description: Global project rules
+globs: 
+alwaysApply: true
+---
+This is a monorepo written in TypeScript. We use Express in the backend, Vite + React in the frontend.
+
+- The backened is in the `./backend` directory
+- The frontend is in hte `./frontend`
+- We use `bun` instead of `npm` and `bunx` instead of `npx`
+- We use React Router v7 for routing in the frontend. This is a newer version for the package, so look it up before making changes to the routing

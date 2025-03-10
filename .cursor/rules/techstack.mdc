@@ -1,0 +1,22 @@
+---
+description: Tech Stack for this Project
+globs: 
+alwaysApply: true
+---
+Frontend:
+ - Typescript React + Vite (core framework and build tool)
+ - Tailwind CSS (utility-first styling)
+ - ShadCN UI (pre-styled components)
+ - Framer Motion (animations)
+Backend
+ - Express.js (server-side framework, TypeScript-based)
+Database & Authentication
+ - Firebase Firestore (document-based storage)
+ - Firebase Auth (user authentication)
+	•	AI Model
+	•	Nebius QwQ-32B (large language model via API)
+	•	Deployment
+	•	Firebase Hosting (frontend hosting)
+	•	Vercel/Render (optional, for backend)
+
+Refrain from using other tools other than this tech stack. If it must be done for any reason, confirm with me(the user) before doing so.
