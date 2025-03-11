@@ -2,50 +2,67 @@ import { Plus, Trash2, Loader2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { createChat, getChats, deleteChat, getChatById } from "../services/chatService";
 import type { Chat } from "../models/chat";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 
 export function Sidebar() {
   const [chats, setChats] = useState<Chat[]>([]);
   const [loading, setLoading] = useState(true);
   const [isCreatingChat, setIsCreatingChat] = useState(false);
   const navigate = useNavigate();
+  const location = useLocation();
+
+  const fetchChats = async () => {
+    try {
+      setLoading(true);
+      const chatList = await getChats();
+      
+      // Handle empty chats (except for the default chat)
+      const emptyChatsRemoved = await cleanupEmptyChats(chatList);
+      
+      // Create a default chat if none exists
+      if (chatList.length === 0 || emptyChatsRemoved && (await getChats()).length === 0) {
+        const defaultChatId = await createChat("New chat 1");
+        // Get the updated chat list but don't automatically navigate
+        const updatedChats = await getChats();
+        setChats(updatedChats);
+      } else {
+        // If we deleted chats, refetch the list
+        const finalChatList = emptyChatsRemoved ? await getChats() : chatList;
+        setChats(finalChatList);
+        
+        // Only navigate to the first chat if we're on a specific /chat route without a chatId
+        // Don't redirect from the homepage ('/')
+        if (finalChatList.length > 0 && window.location.pathname === '/chat') {
+          navigate(`/chat/${finalChatList[0].id}`);
+        }
+      }
+    } catch (error) {
+      console.error("Error fetching chats:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
     // Fetch chats on component mount
-    const fetchChats = async () => {
-      try {
-        const chatList = await getChats();
-        
-        // Handle empty chats (except for the default chat)
-        const emptyChatsRemoved = await cleanupEmptyChats(chatList);
-        
-        // Create a default chat if none exists
-        if (chatList.length === 0 || emptyChatsRemoved && (await getChats()).length === 0) {
-          const defaultChatId = await createChat("New chat 1");
-          // Navigate to the newly created chat
-          navigate(`/chat/${defaultChatId}`);
-          const updatedChats = await getChats();
-          setChats(updatedChats);
-        } else {
-          // If we deleted chats, refetch the list
-          const finalChatList = emptyChatsRemoved ? await getChats() : chatList;
-          setChats(finalChatList);
-          
-          // If there's at least one chat but no currently active chat,
-          // navigate to the first available chat
-          if (finalChatList.length > 0 && (window.location.pathname === '/' || window.location.pathname === '/chat')) {
-            navigate(`/chat/${finalChatList[0].id}`);
-          }
-        }
-      } catch (error) {
-        console.error("Error fetching chats:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
     fetchChats();
   }, [navigate]);
+
+  // Add a new useEffect that will run whenever the location changes
+  useEffect(() => {
+    // If we're on a chat-specific page, make sure to refresh the chat list
+    if (location.pathname.includes('/chat/') && !loading) {
+      const quickRefresh = async () => {
+        try {
+          const chatList = await getChats();
+          setChats(chatList);
+        } catch (error) {
+          console.error("Error refreshing chats:", error);
+        }
+      };
+      quickRefresh();
+    }
+  }, [location.pathname, loading]);
 
   // Function to check for and delete empty chats
   const cleanupEmptyChats = async (chatList: Chat[]): Promise<boolean> => {

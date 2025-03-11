@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import { createChat, getChatById, addMessageToChat } from '../services/chatService';
 import type { Chat as ChatType, ChatMessage } from '../models/chat';
 
@@ -13,6 +13,7 @@ export function Chat({ chatId: propChatId }: ChatProps = {}) {
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const { chatId: paramChatId } = useParams<{ chatId?: string }>();
+  const navigate = useNavigate();
   
   // Use the prop chatId if provided, otherwise use the one from URL params
   const chatId = propChatId || paramChatId;
@@ -21,16 +22,16 @@ export function Chat({ chatId: propChatId }: ChatProps = {}) {
     const initChat = async () => {
       try {
         setLoading(true);
-        let id = chatId;
         
-        // If no chatId is provided, create a new chat
-        if (!id) {
-          id = await createChat();
+        // Only load the chat if we have a chatId
+        if (chatId) {
+          // Get the chat data
+          const chatData = await getChatById(chatId);
+          setChat(chatData);
+        } else {
+          // If no chatId, just set loading to false - we'll create a new chat when user sends a message
+          setChat(null);
         }
-        
-        // Get the chat data
-        const chatData = await getChatById(id);
-        setChat(chatData);
       } catch (error) {
         console.error('Error initializing chat:', error);
       } finally {
@@ -43,13 +44,32 @@ export function Chat({ chatId: propChatId }: ChatProps = {}) {
   
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (inputMessage.trim() === '' || !chat?.id || sending) return;
+    if (inputMessage.trim() === '' || sending) return;
     
     try {
       setSending(true);
       
+      // Create a new chat if none exists
+      let currentChatId = chat?.id;
+      
+      if (!currentChatId) {
+        // Create a new chat with a title based on the first message
+        const chatTitle = inputMessage.length > 30 
+          ? `${inputMessage.substring(0, 30)}...` 
+          : inputMessage;
+        
+        // Create a new chat and get its ID
+        currentChatId = await createChat(chatTitle);
+        // Get the chat data to update state
+        const newChat = await getChatById(currentChatId);
+        setChat(newChat);
+        
+        // Use navigate for proper routing instead of just changing URL
+        navigate(`/chat/${currentChatId}`, { replace: true });
+      }
+      
       // Add user message to Firestore
-      await addMessageToChat(chat.id, {
+      await addMessageToChat(currentChatId, {
         content: inputMessage,
         role: 'user'
       });
@@ -59,22 +79,22 @@ export function Chat({ chatId: propChatId }: ChatProps = {}) {
       
       // Simulate AI response (in a real app, you would call your AI API here)
       setTimeout(async () => {
-        await addMessageToChat(chat.id, {
+        await addMessageToChat(currentChatId, {
           content: 'This is a simulated response from the AI assistant.',
           role: 'assistant'
         });
         
         // Refresh chat data
-        if (chat.id) {
-          const updatedChat = await getChatById(chat.id);
+        if (currentChatId) {
+          const updatedChat = await getChatById(currentChatId);
           setChat(updatedChat);
         }
         setSending(false);
       }, 1000);
       
       // Refresh chat to show user message immediately
-      if (chat.id) {
-        const updatedChat = await getChatById(chat.id);
+      if (currentChatId) {
+        const updatedChat = await getChatById(currentChatId);
         setChat(updatedChat);
       }
     } catch (error) {
