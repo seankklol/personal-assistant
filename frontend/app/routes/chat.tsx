@@ -1,18 +1,21 @@
-import type { Route } from "./+types/chat";
-import { Chat } from "../components/Chat";
+import { redirect } from "react-router";
+import { getChats, createChat } from "../services/chatService";
 
-export function meta({}: Route.MetaArgs) {
-  return [
-    { title: "Chat with AI Assistant" },
-    { name: "description", content: "Chat with your AI assistant" },
-  ];
+export async function loader() {
+  // Get all chats
+  const chats = await getChats();
+  
+  // If there are no chats, create one
+  if (chats.length === 0) {
+    const newChatId = await createChat("New chat 1");
+    return redirect(`/chat/${newChatId}`);
+  }
+  
+  // Redirect to the first available chat
+  return redirect(`/chat/${chats[0].id}`);
 }
 
 export default function ChatPage() {
-  return (
-    <div className="container mx-auto p-4">
-      <h1 className="text-2xl font-bold mb-4">Chat with AI Assistant</h1>
-      <Chat />
-    </div>
-  );
+  // This won't render as we're redirecting
+  return null;
 } 

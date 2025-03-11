@@ -3,12 +3,19 @@ import { useParams } from 'react-router-dom';
 import { createChat, getChatById, addMessageToChat } from '../services/chatService';
 import type { Chat as ChatType, ChatMessage } from '../models/chat';
 
-export function Chat() {
+interface ChatProps {
+  chatId?: string;
+}
+
+export function Chat({ chatId: propChatId }: ChatProps = {}) {
   const [inputMessage, setInputMessage] = useState('');
   const [chat, setChat] = useState<ChatType | null>(null);
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
-  const { chatId } = useParams<{ chatId?: string }>();
+  const { chatId: paramChatId } = useParams<{ chatId?: string }>();
+  
+  // Use the prop chatId if provided, otherwise use the one from URL params
+  const chatId = propChatId || paramChatId;
   
   useEffect(() => {
     const initChat = async () => {
