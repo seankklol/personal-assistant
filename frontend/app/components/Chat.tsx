@@ -1,52 +1,99 @@
-import { useState } from 'react';
-import { trpc } from '../utils/trpc';
-
-type Message = {
-  role: 'user' | 'assistant';
-  content: string;
-  timestamp: Date;
-};
+import { useState, useEffect } from 'react';
+import { useParams } from 'react-router-dom';
+import { createChat, getChatById, addMessageToChat } from '../services/chatService';
+import type { Chat as ChatType, ChatMessage } from '../models/chat';
 
 export function Chat() {
   const [inputMessage, setInputMessage] = useState('');
-  const [messages, setMessages] = useState<Message[]>([]);
-  const utils = trpc.useContext();
+  const [chat, setChat] = useState<ChatType | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [sending, setSending] = useState(false);
+  const { chatId } = useParams<{ chatId?: string }>();
   
-  // Query to get all messages
-  const allMessages = trpc.chat.getMessages.useQuery(undefined, {
-    onSuccess: (data) => {
-      setMessages(data);
-    },
-  });
-  
-  // Mutation to send a message
-  const sendMessageMutation = trpc.chat.sendMessage.useMutation({
-    onSuccess: () => {
-      // Refetch messages after sending
-      utils.chat.getMessages.invalidate();
-      setInputMessage('');
-    },
-  });
-  
-  const handleSendMessage = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (inputMessage.trim() === '') return;
+  useEffect(() => {
+    const initChat = async () => {
+      try {
+        setLoading(true);
+        let id = chatId;
+        
+        // If no chatId is provided, create a new chat
+        if (!id) {
+          id = await createChat();
+        }
+        
+        // Get the chat data
+        const chatData = await getChatById(id);
+        setChat(chatData);
+      } catch (error) {
+        console.error('Error initializing chat:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
     
-    sendMessageMutation.mutate({ 
-      message: inputMessage 
-    });
+    initChat();
+  }, [chatId]);
+  
+  const handleSendMessage = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (inputMessage.trim() === '' || !chat?.id || sending) return;
+    
+    try {
+      setSending(true);
+      
+      // Add user message to Firestore
+      await addMessageToChat(chat.id, {
+        content: inputMessage,
+        role: 'user'
+      });
+      
+      // Clear input
+      setInputMessage('');
+      
+      // Simulate AI response (in a real app, you would call your AI API here)
+      setTimeout(async () => {
+        await addMessageToChat(chat.id, {
+          content: 'This is a simulated response from the AI assistant.',
+          role: 'assistant'
+        });
+        
+        // Refresh chat data
+        if (chat.id) {
+          const updatedChat = await getChatById(chat.id);
+          setChat(updatedChat);
+        }
+        setSending(false);
+      }, 1000);
+      
+      // Refresh chat to show user message immediately
+      if (chat.id) {
+        const updatedChat = await getChatById(chat.id);
+        setChat(updatedChat);
+      }
+    } catch (error) {
+      console.error('Error sending message:', error);
+      setSending(false);
+    }
   };
+  
+  if (loading) {
+    return (
+      <div className="flex flex-col h-screen max-h-[600px] border rounded-lg overflow-hidden items-center justify-center">
+        <div className="animate-pulse text-gray-500">Loading chat...</div>
+      </div>
+    );
+  }
   
   return (
     <div className="flex flex-col h-screen max-h-[600px] border rounded-lg overflow-hidden">
       {/* Chat messages container */}
       <div className="flex-grow overflow-y-auto p-4 space-y-4">
-        {messages.length === 0 ? (
+        {!chat?.messages || chat.messages.length === 0 ? (
           <div className="flex items-center justify-center h-full text-gray-500">
             No messages yet. Start a conversation!
           </div>
         ) : (
-          messages.map((msg, index) => (
+          chat.messages.map((msg, index) => (
             <div 
               key={index} 
               className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
@@ -66,20 +113,6 @@ export function Chat() {
             </div>
           ))
         )}
-        
-        {/* Loading indicator */}
-        {allMessages.isLoading && (
-          <div className="flex justify-center">
-            <div className="animate-pulse text-gray-500">Loading messages...</div>
-          </div>
-        )}
-        
-        {/* Error display */}
-        {allMessages.isError && (
-          <div className="text-red-500 p-3 text-center">
-            Error loading messages: {allMessages.error.message}
-          </div>
-        )}
       </div>
       
       {/* Input form */}
@@ -90,14 +123,14 @@ export function Chat() {
           onChange={(e) => setInputMessage(e.target.value)}
           placeholder="Type your message..."
           className="flex-grow p-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-          disabled={sendMessageMutation.isLoading}
+          disabled={sending}
         />
         <button
           type="submit"
           className="bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
-          disabled={sendMessageMutation.isLoading || inputMessage.trim() === ''}
+          disabled={sending || inputMessage.trim() === ''}
         >
-          {sendMessageMutation.isLoading ? 'Sending...' : 'Send'}
+          {sending ? 'Sending...' : 'Send'}
         </button>
       </form>
     </div>
