@@ -1,5 +1,6 @@
 import axios from 'axios';
 import { CONFIG } from '../config.js';
+import OpenAI from 'openai';
 
 // Interface definitions
 interface NeblusRequestMessage {
@@ -46,6 +47,19 @@ function generateTestResponse(messages: NeblusRequestMessage[]): string {
   return `You said: "${lastUserMessage.content}". This is a test response because the Nebius API key is not configured. To use the actual AI, please set the NEBIUS_API_KEY in your .env file.`;
 }
 
+// Initialize OpenAI client with Nebius API settings
+let openaiClient: OpenAI | null = null;
+
+function getOpenAIClient() {
+  if (!openaiClient && CONFIG.NEBIUS_API_KEY) {
+    openaiClient = new OpenAI({
+      baseURL: 'https://api.studio.nebius.com/v1/',
+      apiKey: CONFIG.NEBIUS_API_KEY,
+    });
+  }
+  return openaiClient;
+}
+
 /**
  * Send a message to Nebius AI and get a response
  * @param messages Conversation history in the format expected by Nebius API
@@ -58,33 +72,43 @@ export async function sendMessageToNebiusAI(messages: NeblusRequestMessage[]): P
       return generateTestResponse(messages);
     }
 
-    // Construct the full API URL with the model path
-    const apiUrl = `${CONFIG.NEBIUS_API_URL}/qwq`;
+    const client = getOpenAIClient();
+    if (!client) {
+      throw new Error('Failed to initialize OpenAI client');
+    }
     
-    console.log(`Sending request to Nebius AI at: ${apiUrl}`);
+    console.log('Sending request to Nebius AI via OpenAI client');
     
-    const response = await axios.post<NebiusResponse>(
-      apiUrl,
-      {
-        model: 'qwq-32b-v0', // Model ID for Nebius QwQ-32B
-        messages: messages,
-        temperature: 0.7,
-        max_tokens: 2000,
-      },
-      {
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Api-Key ${CONFIG.NEBIUS_API_KEY}`,
-        },
-        timeout: 30000, // 30 second timeout
-      }
-    );
+    // Prepare messages for the API
+    const formattedMessages = [];
+    
+    // Add system message if not present
+    if (!messages.some(msg => msg.role === 'system')) {
+      formattedMessages.push({
+        role: 'system' as const,
+        content: 'You are a helpful, friendly and intelligent personal assistant.'
+      });
+    }
+    
+    // Add all messages
+    messages.forEach(msg => {
+      formattedMessages.push({
+        role: msg.role as 'user' | 'assistant' | 'system',
+        content: msg.content
+      });
+    });
+    
+    const response = await client.chat.completions.create({
+      model: 'meta-llama/Llama-3.3-70B-Instruct',
+      messages: formattedMessages,
+      temperature: 0.5,
+    });
 
     // Extract the generated text from the response
-    if (response.data?.result?.generations?.[0]?.text) {
-      return response.data.result.generations[0].text;
+    if (response?.choices?.[0]?.message?.content) {
+      return response.choices[0].message.content;
     } else {
-      console.error('Invalid response format from Nebius API:', response.data);
+      console.error('Invalid response format from Nebius API:', response);
       throw new Error('Invalid response format from Nebius API');
     }
   } catch (error) {
@@ -107,4 +131,4 @@ export async function sendMessageToNebiusAI(messages: NeblusRequestMessage[]): P
     
     return `Error: ${error instanceof Error ? error.message : 'Unknown error occurred'}`;
   }
-} 
+}

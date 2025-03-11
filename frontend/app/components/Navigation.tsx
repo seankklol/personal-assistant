@@ -4,13 +4,10 @@ export function Navigation() {
   return (
     <nav className="bg-gray-800 text-white p-4">
       <div className="container mx-auto flex justify-between items-center">
-        <div className="font-bold text-xl">AI Assistant</div>
+        <Link to="/" className="font-bold text-xl">AI Assistant</Link>
         <ul className="flex space-x-4">
           <li>
-            <Link to="/" className="hover:text-blue-300">Home</Link>
-          </li>
-          <li>
-            <Link to="/chat" className="hover:text-blue-300">Chat</Link>
+            <Link to="/admin" className="hover:text-blue-300">Admin</Link>
           </li>
         </ul>
       </div>

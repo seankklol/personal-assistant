@@ -44,6 +44,9 @@ app.get('/health', (req: Request, res: Response) => {
 app.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);
   console.log(`Nebius AI API ${CONFIG.NEBIUS_API_KEY ? 'is configured' : 'is NOT configured - set NEBIUS_API_KEY in .env'}`);
+  if (CONFIG.NEBIUS_API_KEY) {
+    console.log('Nebius AI API is configured to use the OpenAI-compatible endpoint');
+  }
 });
 
 export default app;

@@ -20,7 +20,7 @@ try {
 export const CONFIG = {
   PORT: process.env.PORT || 3000,
   NEBIUS_API_KEY: process.env.NEBIUS_API_KEY || '',
-  NEBIUS_API_URL: process.env.NEBIUS_API_URL || 'https://llm.api.nebius.cloud/v1/inference',
+  NEBIUS_API_URL: process.env.NEBIUS_API_URL || 'https://api.studio.nebius.com/v1',
   
   // App configuration
   APP_ENV: process.env.NODE_ENV || 'development',
