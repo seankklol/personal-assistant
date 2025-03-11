@@ -7,6 +7,9 @@ export function Navigation() {
         <Link to="/" className="font-bold text-xl">AI Assistant</Link>
         <ul className="flex space-x-4">
           <li>
+            <Link to="/memories" className="hover:text-blue-300">Memories</Link>
+          </li>
+          <li>
             <Link to="/admin" className="hover:text-blue-300">Admin</Link>
           </li>
         </ul>

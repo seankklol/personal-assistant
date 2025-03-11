@@ -21,6 +21,8 @@ function loadMemoryAgentPrompt(): string {
     try {
       memoryAgentPrompt = fs.readFileSync(MEMORY_AGENT_PROMPT_PATH, 'utf-8');
       console.log('Memory agent prompt loaded successfully');
+      console.log('Memory Agent Prompt (first 200 chars):', 
+        memoryAgentPrompt.substring(0, 200) + (memoryAgentPrompt.length > 200 ? '...' : ''));
     } catch (error) {
       console.error('Error loading memory agent prompt:', error);
       memoryAgentPrompt = "You are a Memory Agent. Extract important information from user messages that should be remembered.";
@@ -45,13 +47,19 @@ export async function processMessageForMemories(userMessage: string): Promise<st
       { role: 'user' as const, content: userMessage }
     ];
     
+    console.log('\n--- MEMORY AGENT INPUT ---');
+    console.log(`System prompt length: ${systemPrompt.length} characters`);
+    console.log(`User message: "${userMessage}"`);
+    
     console.log('Sending message to memory agent for processing');
     const memoryAgentResponse = await sendMessageToNebiusAI(messages);
-    console.log('Memory agent response:', memoryAgentResponse);
+    
+    console.log('\n--- MEMORY AGENT RESPONSE ---');
+    console.log('Full Response:', memoryAgentResponse);
     
     // Process the response to extract memories
     if (memoryAgentResponse.includes('NO_MEMORY')) {
-      console.log('No memories extracted from message');
+      console.log('Memory agent determined: NO_MEMORY');
       return [];
     }
     
@@ -62,11 +70,13 @@ export async function processMessageForMemories(userMessage: string): Promise<st
     
     while ((match = memoryRegex.exec(memoryAgentResponse)) !== null) {
       if (match[1] && match[1].trim()) {
-        memories.push(match[1].trim());
+        const memory = match[1].trim();
+        console.log(`Extracted memory: "${memory}"`);
+        memories.push(memory);
       }
     }
     
-    console.log(`Extracted ${memories.length} memories from message`);
+    console.log(`--- TOTAL: ${memories.length} MEMORIES EXTRACTED ---`);
     return memories;
   } catch (error) {
     console.error('Error processing message for memories:', error);

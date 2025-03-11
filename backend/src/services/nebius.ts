@@ -21,6 +21,9 @@ interface NebiusResponse {
  * This allows testing without an actual API key
  */
 function generateTestResponse(messages: NeblusRequestMessage[]): string {
+  console.log('\n=== NEBIUS AI TEST MODE ===');
+  console.log('API key not configured, using test mode response');
+  
   // Get the last user message
   const lastUserMessage = [...messages].reverse().find(msg => msg.role === 'user');
   
@@ -29,6 +32,7 @@ function generateTestResponse(messages: NeblusRequestMessage[]): string {
   }
   
   const userMessage = lastUserMessage.content.toLowerCase();
+  console.log('Last user message:', userMessage);
   
   // Simple response patterns
   if (userMessage.includes('hello') || userMessage.includes('hi')) {
@@ -52,6 +56,7 @@ let openaiClient: OpenAI | null = null;
 
 function getOpenAIClient() {
   if (!openaiClient && CONFIG.NEBIUS_API_KEY) {
+    console.log('Initializing OpenAI client with Nebius API settings');
     openaiClient = new OpenAI({
       baseURL: 'https://api.studio.nebius.com/v1/',
       apiKey: CONFIG.NEBIUS_API_KEY,
@@ -67,6 +72,8 @@ function getOpenAIClient() {
  */
 export async function sendMessageToNebiusAI(messages: NeblusRequestMessage[]): Promise<string> {
   try {
+    console.log('\n=== NEBIUS AI SERVICE ===');
+    
     if (!CONFIG.NEBIUS_API_KEY || CONFIG.NEBIUS_API_KEY === 'your_api_key_here') {
       console.log('Using test mode because API key is not configured');
       return generateTestResponse(messages);
@@ -98,23 +105,49 @@ export async function sendMessageToNebiusAI(messages: NeblusRequestMessage[]): P
       });
     });
     
+    console.log('\n--- NEBIUS AI REQUEST ---');
+    console.log('Model: meta-llama/Llama-3.3-70B-Instruct');
+    console.log('Temperature: 0.5');
+    console.log('Messages:');
+    formattedMessages.forEach((msg, index) => {
+      console.log(`[${index}] ${msg.role}: ${msg.content.substring(0, 100)}${msg.content.length > 100 ? '...' : ''}`);
+    });
+    
+    console.log('\nSending request to Nebius AI...');
+    const startTime = Date.now();
+    
     const response = await client.chat.completions.create({
       model: 'meta-llama/Llama-3.3-70B-Instruct',
       messages: formattedMessages,
       temperature: 0.5,
     });
 
+    const endTime = Date.now();
+    console.log(`Request completed in ${endTime - startTime}ms`);
+    
+    console.log('\n--- NEBIUS AI RESPONSE ---');
+    
     // Extract the generated text from the response
     if (response?.choices?.[0]?.message?.content) {
-      return response.choices[0].message.content;
+      const content = response.choices[0].message.content;
+      console.log(`Response (${content.length} chars): ${content.substring(0, 150)}${content.length > 150 ? '...' : ''}`);
+      return content;
     } else {
       console.error('Invalid response format from Nebius API:', response);
       throw new Error('Invalid response format from Nebius API');
     }
   } catch (error) {
+    console.error('\n--- NEBIUS AI ERROR ---');
     console.error('Error calling Nebius AI API:', error);
     
     if (axios.isAxiosError(error)) {
+      console.error('Axios error details:', {
+        code: error.code,
+        status: error.response?.status,
+        statusText: error.response?.statusText,
+        data: error.response?.data
+      });
+      
       if (error.code === 'ConnectionRefused' || error.code === 'ECONNREFUSED') {
         return `Error connecting to Nebius API. Please check your internet connection and firewall settings. If the issue persists, verify that the API URL is correct.`;
       }

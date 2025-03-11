@@ -1,8 +1,9 @@
 export interface ChatMessage {
   id?: string;
   content: string;
-  role: 'user' | 'assistant';
+  role: 'user' | 'assistant' | 'system';
   timestamp: number;
+  usedMemories?: string[]; // Memories used in this message
 }
 
 export interface Chat {

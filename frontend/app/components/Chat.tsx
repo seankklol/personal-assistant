@@ -118,13 +118,22 @@ export function Chat({ chatId: propChatId }: ChatProps = {}) {
       } else {
         console.log('No memories extracted from this message.');
       }
+      
+      if (aiResponse.usedMemories && aiResponse.usedMemories.length > 0) {
+        console.log('Memories Used in Context:');
+        aiResponse.usedMemories.forEach((memory, index) => {
+          console.log(`Used Memory ${index + 1}: ${memory}`);
+        });
+      } else {
+        console.log('No memories were used in the context.');
+      }
       console.log('--------------------------------------------');
       
       // Add AI response to Firestore
       await addMessageToChat(currentChatId, {
         content: aiResponse.message.content,
         role: 'assistant'
-      });
+      }, aiResponse.usedMemories);
       
       // Refresh chat data
       if (currentChatId) {
@@ -171,7 +180,7 @@ export function Chat({ chatId: propChatId }: ChatProps = {}) {
           chat.messages.map((msg, index) => (
             <div 
               key={index} 
-              className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
+              className={`flex flex-col ${msg.role === 'user' ? 'items-end' : 'items-start'} mb-4`}
             >
               <div 
                 className={`max-w-[80%] p-3 rounded-lg ${
@@ -193,6 +202,18 @@ export function Chat({ chatId: propChatId }: ChatProps = {}) {
                   {new Date(msg.timestamp).toLocaleTimeString()}
                 </p>
               </div>
+              
+              {/* Display used memories for assistant messages */}
+              {msg.role === 'assistant' && msg.usedMemories && msg.usedMemories.length > 0 && (
+                <div className="mt-2 ml-2 p-2 bg-blue-50 rounded border border-blue-100 max-w-[90%]">
+                  <p className="text-xs font-semibold text-blue-800 mb-1">Context Memories:</p>
+                  <ul className="list-disc pl-4 text-xs text-blue-700">
+                    {msg.usedMemories.map((memory, i) => (
+                      <li key={i}>{memory}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
             </div>
           ))
         )}

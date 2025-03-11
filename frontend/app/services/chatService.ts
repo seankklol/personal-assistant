@@ -79,23 +79,23 @@ export async function getChatById(chatId: string | null | undefined): Promise<Ch
   }
 }
 
-export async function addMessageToChat(chatId: string | null | undefined, message: Omit<ChatMessage, 'id' | 'timestamp'>): Promise<void> {
-  if (!chatId) {
-    console.error('Cannot add message: chatId is null or undefined');
-    return;
-  }
-  
+export async function addMessageToChat(chatId: string, message: Partial<ChatMessage>, usedMemories?: string[]): Promise<void> {
   try {
-    const chatRef = doc(db, CHATS_COLLECTION, chatId);
+    const chatDocRef = doc(db, CHATS_COLLECTION, chatId);
+    const now = Date.now();
     
-    const newMessage: Omit<ChatMessage, 'id'> = {
-      ...message,
-      timestamp: Date.now()
+    // Prepare the message to add
+    const newMessage: ChatMessage = {
+      content: message.content || '',
+      role: message.role || 'user',
+      timestamp: now,
+      usedMemories: usedMemories || []
     };
     
-    await updateDoc(chatRef, {
+    // Update the chat document
+    await updateDoc(chatDocRef, {
       messages: arrayUnion(newMessage),
-      updatedAt: Date.now()
+      updatedAt: now
     });
   } catch (error) {
     console.error('Error adding message to chat:', error);
