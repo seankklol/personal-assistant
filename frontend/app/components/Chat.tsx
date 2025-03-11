@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { createChat, getChatById, addMessageToChat } from '../services/chatService';
 import type { Chat as ChatType, ChatMessage } from '../models/chat';
+import { trpc } from '../utils/trpc';
 
 interface ChatProps {
   chatId?: string;
@@ -14,6 +15,9 @@ export function Chat({ chatId: propChatId }: ChatProps = {}) {
   const [sending, setSending] = useState(false);
   const { chatId: paramChatId } = useParams<{ chatId?: string }>();
   const navigate = useNavigate();
+  
+  // Initialize the sendMessage mutation
+  const sendMessageMutation = trpc.chat.sendMessage.useMutation();
   
   // Use the prop chatId if provided, otherwise use the one from URL params
   const chatId = propChatId || paramChatId;
@@ -49,14 +53,17 @@ export function Chat({ chatId: propChatId }: ChatProps = {}) {
     try {
       setSending(true);
       
+      // Store the message before clearing input
+      const messageToSend = inputMessage.trim();
+      
       // Create a new chat if none exists
       let currentChatId = chat?.id;
       
       if (!currentChatId) {
         // Create a new chat with a title based on the first message
-        const chatTitle = inputMessage.length > 30 
-          ? `${inputMessage.substring(0, 30)}...` 
-          : inputMessage;
+        const chatTitle = messageToSend.length > 30 
+          ? `${messageToSend.substring(0, 30)}...` 
+          : messageToSend;
         
         // Create a new chat and get its ID
         currentChatId = await createChat(chatTitle);
@@ -70,36 +77,77 @@ export function Chat({ chatId: propChatId }: ChatProps = {}) {
       
       // Add user message to Firestore
       await addMessageToChat(currentChatId, {
-        content: inputMessage,
+        content: messageToSend,
         role: 'user'
       });
+      
+      // Add a temporary loading message
+      const tempLoadingMessage: ChatMessage = {
+        content: '...',
+        role: 'assistant',
+        timestamp: Date.now()
+      };
+      
+      // Update the chat with the user message and loading indicator
+      const updatedChatWithUserMessage = await getChatById(currentChatId);
+      if (updatedChatWithUserMessage) {
+        setChat({
+          ...updatedChatWithUserMessage,
+          messages: [...updatedChatWithUserMessage.messages, tempLoadingMessage]
+        });
+      }
       
       // Clear input
       setInputMessage('');
       
-      // Simulate AI response (in a real app, you would call your AI API here)
-      setTimeout(async () => {
-        await addMessageToChat(currentChatId, {
-          content: 'This is a simulated response from the AI assistant.',
-          role: 'assistant'
-        });
-        
-        // Refresh chat data
-        if (currentChatId) {
-          const updatedChat = await getChatById(currentChatId);
-          setChat(updatedChat);
-        }
-        setSending(false);
-      }, 1000);
+      // Send message to AI via tRPC
+      const aiResponse = await sendMessageMutation.mutateAsync({
+        message: messageToSend
+      });
       
-      // Refresh chat to show user message immediately
+      // Log memory-related information to console
+      console.log('----------- MEMORY AGENT PROCESSING -----------');
+      console.log('User Message:', messageToSend);
+      console.log('AI Response:', aiResponse.message.content);
+      
+      if (aiResponse.memories && aiResponse.memories.length > 0) {
+        console.log('Extracted Memories:');
+        aiResponse.memories.forEach((memory, index) => {
+          console.log(`Memory ${index + 1}: ${memory}`);
+        });
+      } else {
+        console.log('No memories extracted from this message.');
+      }
+      console.log('--------------------------------------------');
+      
+      // Add AI response to Firestore
+      await addMessageToChat(currentChatId, {
+        content: aiResponse.message.content,
+        role: 'assistant'
+      });
+      
+      // Refresh chat data
       if (currentChatId) {
         const updatedChat = await getChatById(currentChatId);
         setChat(updatedChat);
       }
+      
+      setSending(false);
     } catch (error) {
       console.error('Error sending message:', error);
       setSending(false);
+      
+      // Add error message to chat
+      if (chat?.id) {
+        await addMessageToChat(chat.id, {
+          content: `Error: ${error instanceof Error ? error.message : 'Unknown error occurred'}`,
+          role: 'assistant'
+        });
+        
+        // Refresh chat
+        const updatedChat = await getChatById(chat.id);
+        setChat(updatedChat);
+      }
     }
   };
   
@@ -132,7 +180,15 @@ export function Chat({ chatId: propChatId }: ChatProps = {}) {
                     : 'bg-gray-200 text-gray-800 rounded-bl-none'
                 }`}
               >
-                <p>{msg.content}</p>
+                {msg.content === '...' && msg.role === 'assistant' ? (
+                  <div className="flex space-x-2 items-center">
+                    <div className="w-2 h-2 bg-gray-500 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
+                    <div className="w-2 h-2 bg-gray-500 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
+                    <div className="w-2 h-2 bg-gray-500 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
+                  </div>
+                ) : (
+                  <p>{msg.content}</p>
+                )}
                 <p className="text-xs mt-1 opacity-70">
                   {new Date(msg.timestamp).toLocaleTimeString()}
                 </p>

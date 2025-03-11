@@ -22,6 +22,17 @@ export const CONFIG = {
   NEBIUS_API_KEY: process.env.NEBIUS_API_KEY || '',
   NEBIUS_API_URL: process.env.NEBIUS_API_URL || 'https://api.studio.nebius.com/v1',
   
+  // Firebase configuration
+  FIREBASE: {
+    apiKey: process.env.VITE_FIREBASE_API_KEY || '',
+    authDomain: process.env.VITE_FIREBASE_AUTH_DOMAIN || '',
+    projectId: process.env.VITE_FIREBASE_PROJECT_ID || '',
+    storageBucket: process.env.VITE_FIREBASE_STORAGE_BUCKET || '',
+    messagingSenderId: process.env.VITE_FIREBASE_MESSAGING_SENDER_ID || '',
+    appId: process.env.VITE_FIREBASE_APP_ID || '',
+    measurementId: process.env.VITE_FIREBASE_MEASUREMENT_ID || ''
+  },
+  
   // App configuration
   APP_ENV: process.env.NODE_ENV || 'development',
   TEST_MODE: !process.env.NEBIUS_API_KEY || process.env.NEBIUS_API_KEY === 'your_api_key_here',
@@ -41,5 +52,12 @@ export function validateConfig(): void {
   }
   else {
     console.log('Nebius AI API key is configured.');
+  }
+  
+  // Check Firebase configuration
+  if (!CONFIG.FIREBASE.apiKey || !CONFIG.FIREBASE.projectId) {
+    console.warn('Warning: Firebase configuration is incomplete. Logging to Firestore will not work.');
+  } else {
+    console.log('Firebase configuration is set up.');
   }
 } 

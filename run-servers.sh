@@ -1,54 +1,54 @@
 #!/bin/bash
 
-# Function to check if a port is in use
-check_port() {
-  if lsof -i :$1 > /dev/null 2>&1; then
-    echo "Port $1 is already in use. Please stop the process using this port and try again."
-    return 1
-  fi
-  return 0
-}
+# Colors for console output
+GREEN='\033[0;32m'
+BLUE='\033[0;34m'
+RED='\033[0;31m'
+NC='\033[0m' # No Color
 
-# Check if ports are available
-check_port 3000 || exit 1
-check_port 5173 || exit 1  # Vite uses port 5173 by default
+# Store the root directory
+ROOT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
-# Install backend dependencies and start the backend server
-echo "Installing backend dependencies..."
-cd backend
-bun install
-echo "Starting backend server..."
-bun run dev &
-BACKEND_PID=$!
-echo "Backend server started with PID: $BACKEND_PID"
+echo -e "${BLUE}Starting servers for AI Assistant...${NC}"
 
-# Wait a moment for the backend to start
-sleep 2
-
-# Install frontend dependencies and start the frontend server
-echo "Installing frontend dependencies..."
-cd ../frontend
-bun install
-echo "Starting frontend server..."
-bun run dev &
-FRONTEND_PID=$!
-echo "Frontend server started with PID: $FRONTEND_PID"
-
-echo "Both servers are running."
-echo "Backend on: http://localhost:3000"
-echo "Frontend on: http://localhost:5173" # Vite uses port 5173 by default
-echo "Press Ctrl+C to stop both servers."
-
-# Cleanup function
+# Function to cleanup child processes when script exits
 cleanup() {
-  echo "Stopping servers..."
-  kill -9 $BACKEND_PID 2>/dev/null
-  kill -9 $FRONTEND_PID 2>/dev/null
+  echo -e "\n${RED}Stopping all servers...${NC}"
+  kill $(jobs -p) 2>/dev/null
   exit 0
 }
 
-# Set trap for cleanup
-trap cleanup INT TERM
+# Setup trap to catch SIGINT (Ctrl+C) and run cleanup
+trap cleanup SIGINT
 
-# Wait for processes to finish
-wait 
+# Check if required directories exist
+if [ ! -d "$ROOT_DIR/frontend" ]; then
+  echo -e "${RED}Error: Frontend directory not found.${NC}"
+  exit 1
+fi
+
+if [ ! -d "$ROOT_DIR/backend" ]; then
+  echo -e "${RED}Error: Backend directory not found.${NC}"
+  exit 1
+fi
+
+# Start Backend Server
+echo -e "${GREEN}Starting Backend Server...${NC}"
+cd "$ROOT_DIR/backend" && PORT=3001 bun --watch src/index.ts &
+BACKEND_PID=$!
+
+# Wait a moment to allow backend to start
+sleep 2
+
+# Start Frontend Server
+echo -e "${GREEN}Starting Frontend Server...${NC}"
+cd "$ROOT_DIR/frontend" && bun run dev &
+FRONTEND_PID=$!
+
+# Watch both processes
+echo -e "${BLUE}All servers started. Press Ctrl+C to stop all servers.${NC}"
+echo -e "${GREEN}Backend running on http://localhost:3001${NC}"
+echo -e "${GREEN}Frontend running on http://localhost:5173${NC}"
+
+# Wait for both processes to finish
+wait $BACKEND_PID $FRONTEND_PID 
