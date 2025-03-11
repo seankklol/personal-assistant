@@ -9,6 +9,7 @@ import {
 import { QueryClientProvider } from "@tanstack/react-query";
 import { trpc, trpcClient, queryClient } from "./utils/trpc";
 import { Navigation } from "./components/Navigation";
+import { Sidebar } from "./components/Sidebar";
 
 import type { Route } from "./+types/root";
 import "./app.css";
@@ -52,7 +53,12 @@ export default function App() {
   return (
     <>
       <Navigation />
-      <Outlet />
+      <div className="flex">
+        <Sidebar />
+        <main className="flex-1">
+          <Outlet />
+        </main>
+      </div>
     </>
   );
 }
